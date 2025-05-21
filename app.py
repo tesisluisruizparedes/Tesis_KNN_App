@@ -58,7 +58,7 @@ if "df_input" not in st.session_state:
 
 # --- Botón para usar trayectoria real desde la base funcional ---
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
-    muestra = espacioF.iloc[100]
+    muestra = espacioF.sample(1).iloc[0]
     nueva_entrada = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
     for var in indicadores:
         for i in range(n_ventana):
