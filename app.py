@@ -121,12 +121,19 @@ def distancia_ponderada(f1, f2, lambda_p, n, pesos):
 
 
 # --- Botón para usar una trayectoria real desde la base ---
+if "usar_trayectoria_real" not in st.session_state:
+    st.session_state.usar_trayectoria_real = False
+
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
+    st.session_state.usar_trayectoria_real = True
+
+if st.session_state.usar_trayectoria_real:
     muestra = espacioF.iloc[100]
     for var in indicadores:
         for i in range(n_ventana):
             df_input.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
-    st.experimental_rerun()
+    st.session_state.usar_trayectoria_real = False
+
 
 # --- Predicción ---
 if st.button("🔍 Predecir riesgo de quiebra"):
