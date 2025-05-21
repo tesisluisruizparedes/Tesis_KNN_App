@@ -7,7 +7,6 @@ import pickle
 st.set_page_config(page_title="Predicción de Quiebra", layout="wide")
 st.title("📉 Predicción con Modelo Funcional k-NN (Versión Final)")
 
-
 # --- Explicación ---
 st.markdown("""
 Ingrese los valores de los 17 indicadores financieros para los **últimos 5 años**.  
@@ -42,57 +41,43 @@ st.sidebar.markdown(f"""
 - Ventana: {n_ventana} años
 """)
 
-# --- Entrada editable ---
-st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
-df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
-df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
-if st.sidebar.button("🎯 Usar empresa real"):
-    muestra = espacioF.iloc[100]
-    for var in indicadores:
-        for i in range(n_ventana):
-            df_input.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
-
-
-
-
+# --- Mapeo sectores ---
 mapeo_sectores = {
-    'A': 'Agro',
-    'B': 'Minería',
-    'C': 'Industria',
-    'D': 'Electricidad/Gas',
-    'E': 'Agua y desechos',
-    'F': 'Construcción',
-    'G': 'Comercio/Vehículos',
-    'H': 'Transporte',
-    'I': 'Turismo/Comida',
-    'J': 'Comunicaciones',
-    'K': 'Finanzas',
-    'L': 'Inmobiliario',
-    'M': 'Profesionales',
-    'N': 'Servicios adm.',
-    'O': 'Gobierno',
-    'P': 'Educación',
-    'Q': 'Salud',
-    'R': 'Entretenimiento',
-    'S': 'Otros servicios',
-    'T': 'Hogares',
-    'U': 'Entidades ext.',
-    np.nan: 'Sin clasificar'
+    'A': 'Agro', 'B': 'Minería', 'C': 'Industria', 'D': 'Electricidad/Gas',
+    'E': 'Agua y desechos', 'F': 'Construcción', 'G': 'Comercio/Vehículos',
+    'H': 'Transporte', 'I': 'Turismo/Comida', 'J': 'Comunicaciones',
+    'K': 'Finanzas', 'L': 'Inmobiliario', 'M': 'Profesionales',
+    'N': 'Servicios adm.', 'O': 'Gobierno', 'P': 'Educación', 'Q': 'Salud',
+    'R': 'Entretenimiento', 'S': 'Otros servicios', 'T': 'Hogares',
+    'U': 'Entidades ext.', np.nan: 'Sin clasificar'
 }
 
+# --- Inicializar entrada editable en session_state ---
+if "df_input" not in st.session_state:
+    st.session_state.df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 
+# --- Botón para usar trayectoria real desde la base funcional ---
+if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
+    muestra = espacioF.iloc[100]
+    nueva_entrada = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
+    for var in indicadores:
+        for i in range(n_ventana):
+            nueva_entrada.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
+    st.session_state.df_input = nueva_entrada
+
+# --- Mostrar editor editable con datos actuales ---
+st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
+df_input = st.data_editor(st.session_state.df_input, use_container_width=True, num_rows="fixed")
 
 # --- Métrica funcional personalizada ---
 def distancia_ponderada(f1, f2, lambda_p, n, pesos):
     f1 = f1.to_dict() if isinstance(f1, pd.Series) else f1
     f2 = f2.to_dict() if isinstance(f2, pd.Series) else f2
     total, suma_pesos = 0, 0
-
     for var in indicadores:
         v1 = [f1.get(f"{var}_-{i}", np.nan) for i in range(n)]
         v2 = [f2.get(f"{var}_-{i}", np.nan) for i in range(n)]
         l1, validos = 0, 0
-
         for a, b in zip(v1, v2):
             try:
                 if pd.notna(a) and pd.notna(b):
@@ -104,55 +89,23 @@ def distancia_ponderada(f1, f2, lambda_p, n, pesos):
                         l1 += abs(a - b)
                     validos += 1
             except TypeError:
-                # Si a o b son None o tipos no numéricos, simplemente los ignoramos
                 continue
-
         faltantes = n - validos
-        if validos > 0:
-            penalizada = l1 * (1 + lambda_p * (faltantes / n))
-            acotada = penalizada / (1 + penalizada) if np.isfinite(penalizada) else 1.0
-        else:
-            acotada = 1.0
-
+        penalizada = l1 * (1 + lambda_p * (faltantes / n)) if validos > 0 else 1.0
+        acotada = penalizada / (1 + penalizada) if np.isfinite(penalizada) else 1.0
         total += pesos[var] * acotada
         suma_pesos += pesos[var]
-
     return total / suma_pesos if suma_pesos > 0 else 1.0
-
-
-# --- Botón para usar una trayectoria real desde la base ---
-if "usar_trayectoria_real" not in st.session_state:
-    st.session_state.usar_trayectoria_real = False
-
-if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
-    st.session_state.usar_trayectoria_real = True
-
-if st.session_state.usar_trayectoria_real:
-    muestra = espacioF.iloc[100]
-    for var in indicadores:
-        for i in range(n_ventana):
-            df_input.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
-    st.session_state.usar_trayectoria_real = False
-
 
 # --- Predicción ---
 if st.button("🔍 Predecir riesgo de quiebra"):
     if df_input.isnull().all().all():
         st.warning("⚠️ Debe ingresar al menos un dato para calcular distancia.")
     else:
-        # Crear diccionario con nombres del tipo VAR_-0, VAR_-1, ..., VAR_-4
         trayectoria = {}
         for i in range(n_ventana):
             for var in indicadores:
                 trayectoria[f"{var}_-{i}"] = df_input.loc[f"Año {i+1}", var]
-
-        # 🧪 Diagnóstico: comparar claves construidas vs. esperadas
-        st.markdown("### 🧪 Claves construidas en trayectoria:")
-        st.write(sorted(trayectoria.keys()))
-
-        st.markdown("### 🧪 Claves esperadas desde indicadores:")
-        claves_esperadas = [f"{var}_-{i}" for var in indicadores for i in range(n_ventana)]
-        st.write(sorted(claves_esperadas))
 
         st.info("⏳ Calculando distancias funcionales...")
         distancias = espacioF.apply(lambda fila: distancia_ponderada(trayectoria, fila, lambda_p, n_ventana, pesos), axis=1)
@@ -165,11 +118,7 @@ if st.button("🔍 Predecir riesgo de quiebra"):
         resultado = espacioF.loc[vecinos_idx, ["DEP", "CIIU_Letra", "Año_final"]].copy()
         resultado["NIT"] = vecinos_idx
         resultado["Distancia funcional"] = distancias.loc[vecinos_idx].values
-
-        # Aplicar mapeo al sector
         resultado["Sector económico"] = resultado["CIIU_Letra"].map(mapeo_sectores)
         resultado.drop(columns=["CIIU_Letra"], inplace=True)
-
-        # Reordenar columnas
         resultado = resultado[["NIT", "Año_final", "DEP", "Sector económico", "Distancia funcional"]]
         st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
