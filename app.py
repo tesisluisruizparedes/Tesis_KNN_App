@@ -5,7 +5,8 @@ import pickle
 
 # --- Configuración ---
 st.set_page_config(page_title="Predicción de Quiebra", layout="wide")
-st.title("📉 Predicción de Riesgo de Quiebra Empresarial con k-NN Funcional")
+st.title("📉 Predicción con Modelo Funcional k-NN (Versión Final)")
+
 
 # --- Explicación ---
 st.markdown("""
