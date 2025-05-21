@@ -47,6 +47,15 @@ st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
 df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
 
+
+
+st.markdown("### 🧪 Claves construidas en trayectoria:")
+st.write(sorted(trayectoria.keys()))
+
+st.markdown("### 🧪 Claves esperadas desde indicadores:")
+esperadas = [f"{var}_-{i}" for var in indicadores for i in range(n_ventana)]
+st.write(sorted(esperadas))
+
 mapeo_sectores = {
     'A': 'Agro',
     'B': 'Minería',
