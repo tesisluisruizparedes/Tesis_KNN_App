@@ -49,12 +49,6 @@ df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
 
 
 
-st.markdown("### 🧪 Claves construidas en trayectoria:")
-st.write(sorted(trayectoria.keys()))
-
-st.markdown("### 🧪 Claves esperadas desde indicadores:")
-esperadas = [f"{var}_-{i}" for var in indicadores for i in range(n_ventana)]
-st.write(sorted(esperadas))
 
 mapeo_sectores = {
     'A': 'Agro',
@@ -133,6 +127,14 @@ if st.button("🔍 Predecir riesgo de quiebra"):
             for var in indicadores:
                 trayectoria[f"{var}_-{i}"] = df_input.loc[f"Año {i+1}", var]
 
+        # 🧪 Diagnóstico: comparar claves construidas vs. esperadas
+        st.markdown("### 🧪 Claves construidas en trayectoria:")
+        st.write(sorted(trayectoria.keys()))
+
+        st.markdown("### 🧪 Claves esperadas desde indicadores:")
+        claves_esperadas = [f"{var}_-{i}" for var in indicadores for i in range(n_ventana)]
+        st.write(sorted(claves_esperadas))
+
         st.info("⏳ Calculando distancias funcionales...")
         distancias = espacioF.apply(lambda fila: distancia_ponderada(trayectoria, fila, lambda_p, n_ventana, pesos), axis=1)
         vecinos_idx = distancias.nsmallest(k).index
@@ -144,12 +146,11 @@ if st.button("🔍 Predecir riesgo de quiebra"):
         resultado = espacioF.loc[vecinos_idx, ["DEP", "CIIU_Letra", "Año_final"]].copy()
         resultado["NIT"] = vecinos_idx
         resultado["Distancia funcional"] = distancias.loc[vecinos_idx].values
-        
+
         # Aplicar mapeo al sector
         resultado["Sector económico"] = resultado["CIIU_Letra"].map(mapeo_sectores)
         resultado.drop(columns=["CIIU_Letra"], inplace=True)
-        
+
         # Reordenar columnas
         resultado = resultado[["NIT", "Año_final", "DEP", "Sector económico", "Distancia funcional"]]
         st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
-
