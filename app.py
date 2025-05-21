@@ -72,6 +72,7 @@ def distancia_ponderada(f1, f2, lambda_p, n, pesos):
         suma_pesos += pesos[var]
     return total / suma_pesos if suma_pesos > 0 else 1.0
 
+
 # --- Predicción ---
 if st.button("🔍 Predecir riesgo de quiebra"):
     if df_input.isnull().all().all():
