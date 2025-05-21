@@ -47,6 +47,10 @@ st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
 df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
 
+st.write("Ejemplo de fila de espacioF:")
+st.write(espacioF.iloc[0])
+
+
 # --- Métrica funcional personalizada ---
 def distancia_ponderada(f1, f2, lambda_p, n, pesos):
     total, suma_pesos = 0, 0
