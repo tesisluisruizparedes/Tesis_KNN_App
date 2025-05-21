@@ -46,6 +46,11 @@ st.sidebar.markdown(f"""
 st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
 df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
+if st.sidebar.button("🎯 Usar empresa real"):
+    muestra = espacioF.iloc[100]
+    for var in indicadores:
+        for i in range(n_ventana):
+            df_input.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
 
 
 
