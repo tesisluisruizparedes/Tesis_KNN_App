@@ -120,6 +120,13 @@ def distancia_ponderada(f1, f2, lambda_p, n, pesos):
     return total / suma_pesos if suma_pesos > 0 else 1.0
 
 
+# --- Botón para usar una trayectoria real desde la base ---
+if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
+    muestra = espacioF.iloc[100]
+    for var in indicadores:
+        for i in range(n_ventana):
+            df_input.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
+    st.experimental_rerun()
 
 # --- Predicción ---
 if st.button("🔍 Predecir riesgo de quiebra"):
