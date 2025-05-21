@@ -53,29 +53,41 @@ st.write(espacioF.iloc[0])
 
 # --- Métrica funcional personalizada ---
 def distancia_ponderada(f1, f2, lambda_p, n, pesos):
+    f1 = f1.to_dict() if isinstance(f1, pd.Series) else f1
+    f2 = f2.to_dict() if isinstance(f2, pd.Series) else f2
     total, suma_pesos = 0, 0
+
     for var in indicadores:
         v1 = [f1.get(f"{var}_-{i}", np.nan) for i in range(n)]
         v2 = [f2.get(f"{var}_-{i}", np.nan) for i in range(n)]
         l1, validos = 0, 0
+
         for a, b in zip(v1, v2):
-            if pd.notna(a) and pd.notna(b):
-                if np.isinf(a) and np.isinf(b) and a == b:
-                    l1 += 0
-                elif np.isinf(a) or np.isinf(b):
-                    l1 += np.inf
-                else:
-                    l1 += abs(a - b)
-                validos += 1
+            try:
+                if pd.notna(a) and pd.notna(b):
+                    if np.isinf(a) and np.isinf(b) and a == b:
+                        l1 += 0
+                    elif np.isinf(a) or np.isinf(b):
+                        l1 += np.inf
+                    else:
+                        l1 += abs(a - b)
+                    validos += 1
+            except TypeError:
+                # Si a o b son None o tipos no numéricos, simplemente los ignoramos
+                continue
+
         faltantes = n - validos
         if validos > 0:
             penalizada = l1 * (1 + lambda_p * (faltantes / n))
             acotada = penalizada / (1 + penalizada) if np.isfinite(penalizada) else 1.0
         else:
             acotada = 1.0
+
         total += pesos[var] * acotada
         suma_pesos += pesos[var]
+
     return total / suma_pesos if suma_pesos > 0 else 1.0
+
 
 
 # --- Predicción ---
