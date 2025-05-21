@@ -47,8 +47,31 @@ st.subheader("📝 Ingrese los 17 indicadores financieros (últimos 5 años)")
 df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 df_input = st.data_editor(df_input, use_container_width=True, num_rows="fixed")
 
-st.write("Ejemplo de fila de espacioF:")
-st.write(espacioF.iloc[0])
+mapeo_sectores = {
+    'A': 'Agro',
+    'B': 'Minería',
+    'C': 'Industria',
+    'D': 'Electricidad/Gas',
+    'E': 'Agua y desechos',
+    'F': 'Construcción',
+    'G': 'Comercio/Vehículos',
+    'H': 'Transporte',
+    'I': 'Turismo/Comida',
+    'J': 'Comunicaciones',
+    'K': 'Finanzas',
+    'L': 'Inmobiliario',
+    'M': 'Profesionales',
+    'N': 'Servicios adm.',
+    'O': 'Gobierno',
+    'P': 'Educación',
+    'Q': 'Salud',
+    'R': 'Entretenimiento',
+    'S': 'Otros servicios',
+    'T': 'Hogares',
+    'U': 'Entidades ext.',
+    np.nan: 'Sin clasificar'
+}
+
 
 
 # --- Métrica funcional personalizada ---
@@ -112,5 +135,12 @@ if st.button("🔍 Predecir riesgo de quiebra"):
         resultado = espacioF.loc[vecinos_idx, ["DEP", "CIIU_Letra", "Año_final"]].copy()
         resultado["NIT"] = vecinos_idx
         resultado["Distancia funcional"] = distancias.loc[vecinos_idx].values
-        resultado = resultado[["NIT", "Año_final", "DEP", "CIIU_Letra", "Distancia funcional"]]
+        
+        # Aplicar mapeo al sector
+        resultado["Sector económico"] = resultado["CIIU_Letra"].map(mapeo_sectores)
+        resultado.drop(columns=["CIIU_Letra"], inplace=True)
+        
+        # Reordenar columnas
+        resultado = resultado[["NIT", "Año_final", "DEP", "Sector económico", "Distancia funcional"]]
         st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
+
