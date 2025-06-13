@@ -72,11 +72,10 @@ if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
     st.session_state.df_input = nueva
     st.session_state.cambio_real = True
 
-# --- Si acaba de cambiar, evitar mostrar controles todavía ---
+# --- Mensaje si se cargó trayectoria real ---
 if st.session_state.cambio_real:
     st.info("✅ Trayectoria real cargada. Puede revisar los valores y presionar 'Predecir'.")
     st.session_state.cambio_real = False
-    st.stop()
 
 # --- Selectores con sincronización ---
 st.sidebar.subheader("📌 Variables cualitativas")
