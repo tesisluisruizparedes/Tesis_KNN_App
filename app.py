@@ -1,64 +1,58 @@
-# --- Streamlit app comparativa para modelo funcional base vs extendido ---
+# --- Streamlit app: Solo modelo funcional extendido ---
 import streamlit as st
 import numpy as np
 import pandas as pd
 import pickle
 
 # --- Configuración general ---
-st.set_page_config(page_title="Predicción de Quiebra", layout="wide")
-st.title("📉 Comparación del Modelo Funcional k-NN: Base vs Extendido")
+st.set_page_config(page_title="Predicción de Quiebra Extendida", layout="wide")
+st.title("📉 Predicción de Quiebra con Modelo Funcional k-NN Extendido")
 
-# --- Explicación ---
 st.markdown("""
-Esta herramienta compara dos versiones del modelo funcional k-NN:
-- ✅ **Modelo base**: usa solo trayectorias de 17 indicadores financieros.
-- ✨ **Modelo extendido**: incluye además el departamento, el sector económico y el año final.
-
-Ingrese los valores de los 17 indicadores para los últimos 5 años. Puede dejar valores faltantes (NaN). Seleccione también el Departamento y el CIIU para el modelo extendido.
+Ingrese los valores de los 17 indicadores financieros para los **últimos 5 años**. Puede dejar valores en blanco (NaN). Seleccione también el Departamento y la Letra CIIU. El modelo buscará las trayectorias más similares considerando tanto el comportamiento financiero como el entorno de operación (región, sector y año).
 """)
 
-# --- Cargar datos y parámetros ---
+# --- Cargar base extendida y parámetros ---
 @st.cache_data
 def cargar_datos():
-    base_b, params_b = pd.read_parquet("9_1EspacioF.parquet"), pickle.load(open("9_2ParametrosFuncional.pkl", "rb"))
-    base_e, params_e = pd.read_parquet("20_1EspacioF.parquet"), pickle.load(open("20_2ParametrosFuncional.pkl", "rb"))
-    return base_b, params_b, base_e, params_e
+    base_e = pd.read_parquet("20_1EspacioF.parquet")
+    with open("20_2ParametrosFuncional.pkl", "rb") as f:
+        params_e = pickle.load(f)
+    return base_e, params_e
 
-espacioB, paramsB, espacioE, paramsE = cargar_datos()
+espacioE, paramsE = cargar_datos()
 
-# --- Extraer info de modelo base ---
-k_b = paramsB['k']
-lambda_b = paramsB['lambda']
-pesos_b = paramsB['pesos']
-columnas_b = [col for col in espacioB.columns if "_-" in col]
-indicadores = sorted(set(col.split("_-")[0] for col in columnas_b))
-n_ventana = len(set(col.split("_-")[1] for col in columnas_b))
+k = paramsE['k']
+lambda_p = paramsE['lambda']
+pesos = paramsE['pesos']
+columnas_funcionales = [col for col in espacioE.columns if "_-" in col]
+indicadores = sorted(set(col.split("_-")[0] for col in columnas_funcionales))
+n_ventana = len(set(col.split("_-")[1] for col in columnas_funcionales))
 
-# --- Extraer info de modelo extendido ---
-k_e = paramsE['k']
-lambda_e = paramsE['lambda']
-pesos_e = paramsE['pesos']
-
-# --- Inicializar entrada y metadatos ---
+# --- Inicializar entrada y variables categóricas ---
 if "df_input" not in st.session_state:
     st.session_state.df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
 if "nit_origen" not in st.session_state:
     st.session_state.nit_origen = None
 if "anio_final_usuario" not in st.session_state:
     st.session_state.anio_final_usuario = 2023
+if "dep_usuario" not in st.session_state:
+    st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
+if "ciiu_usuario" not in st.session_state:
+    st.session_state.ciiu_usuario = espacioE["CIIU_Letra"].dropna().unique()[0]
 
-# --- Panel lateral con selectores ---
-st.sidebar.subheader("📌 Variables cualitativas (modelo extendido)")
-opciones_dep = sorted(espacioE["DEP"].dropna().unique())
-opciones_ciiu = sorted(espacioE["CIIU_Letra"].dropna().unique())
-dep_usuario = st.sidebar.selectbox("Departamento", opciones_dep)
-ciiu_usuario = st.sidebar.selectbox("Letra CIIU", opciones_ciiu)
+# --- Selectores para variables categóricas ---
+st.sidebar.subheader("📌 Variables cualitativas")
+st.session_state.dep_usuario = st.sidebar.selectbox("Departamento", sorted(espacioE["DEP"].dropna().unique()), index=0, key="dep")
+st.session_state.ciiu_usuario = st.sidebar.selectbox("Letra CIIU", sorted(espacioE["CIIU_Letra"].dropna().unique()), index=0, key="ciiu")
 
-# --- Botón para cargar ejemplo real ---
+# --- Botón para cargar trayectoria real ---
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
     fila = espacioE.sample(1)
     st.session_state.nit_origen = fila.index[0]
     st.session_state.anio_final_usuario = int(fila["Año_final"].iloc[0])
+    st.session_state.dep_usuario = fila["DEP"].iloc[0]
+    st.session_state.ciiu_usuario = fila["CIIU_Letra"].iloc[0]
     nueva = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
     for var in indicadores:
         for i in range(n_ventana):
@@ -66,11 +60,11 @@ if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
     st.session_state.df_input = nueva
 
 # --- Entrada editable ---
-st.subheader("📜 Ingrese los 17 indicadores financieros (5 años)")
+st.subheader("📝 Ingrese los 17 indicadores financieros (5 años)")
 df_input = st.data_editor(st.session_state.df_input, use_container_width=True, num_rows="fixed")
 
-# --- Funciones de distancia ---
-def distancia_base(f1, f2, lambda_p, n, pesos):
+# --- Función de distancia extendida ---
+def distancia_ponderada_extendida(f1, f2, lambda_p, n, pesos):
     total, suma_pesos = 0, 0
     for var in indicadores:
         v1 = [f1.get(f"{var}_-{i}", np.nan) for i in range(n)]
@@ -89,18 +83,13 @@ def distancia_base(f1, f2, lambda_p, n, pesos):
         acotada = penalizada / (1 + penalizada) if np.isfinite(penalizada) else 1.0
         total += pesos[var] * acotada
         suma_pesos += pesos[var]
-    return total / suma_pesos if suma_pesos > 0 else 1.0
-
-def distancia_ext(f1, f2, lambda_p, n, pesos):
-    base = distancia_base(f1, f2, lambda_p, n, pesos)
     d_dep = 0 if f1["DEP"] == f2["DEP"] else 1
     d_ciiu = 0 if f1["CIIU_Letra"] == f2["CIIU_Letra"] else 1
     desfase = abs(f1["Año_final"] - f2["Año_final"])
-    total = base * sum(pesos[var] for var in indicadores)
     total += pesos.get("DEP", 1.0) * d_dep
     total += pesos.get("CIIU", 1.0) * d_ciiu
     total += pesos.get("desfase", 1.0) * desfase
-    suma_pesos = sum(pesos[var] for var in indicadores) + pesos.get("DEP",1)+pesos.get("CIIU",1)+pesos.get("desfase",1)
+    suma_pesos += pesos.get("DEP", 1.0) + pesos.get("CIIU", 1.0) + pesos.get("desfase", 1.0)
     return total / suma_pesos if suma_pesos > 0 else 1.0
 
 # --- Predicción ---
@@ -109,38 +98,21 @@ if st.button("🔍 Predecir riesgo de quiebra"):
         st.warning("⚠️ Debe ingresar al menos un dato numérico.")
     else:
         trayectoria = {f"{var}_-{i}": df_input.loc[f"Año {i+1}", var] for var in indicadores for i in range(n_ventana)}
-        trayectoria_ext = trayectoria.copy()
-        trayectoria_ext["DEP"] = dep_usuario
-        trayectoria_ext["CIIU_Letra"] = ciiu_usuario
-        trayectoria_ext["Año_final"] = st.session_state.anio_final_usuario
+        trayectoria["DEP"] = st.session_state.dep_usuario
+        trayectoria["CIIU_Letra"] = st.session_state.ciiu_usuario
+        trayectoria["Año_final"] = st.session_state.anio_final_usuario
 
-        # --- Modelo base ---
-        distB = espacioB.apply(lambda fila: distancia_base(trayectoria, fila, lambda_b, n_ventana, pesos_b), axis=1)
-        if st.session_state.nit_origen: distB = distB.drop(st.session_state.nit_origen, errors="ignore")
-        vecinos_b = distB.nsmallest(k_b).index
-        prob_b = espacioB.loc[vecinos_b, "RQ_final"].mean()
+        distE = espacioE.apply(lambda fila: distancia_ponderada_extendida(trayectoria, fila, lambda_p, n_ventana, pesos), axis=1)
+        if st.session_state.nit_origen:
+            distE = distE.drop(st.session_state.nit_origen, errors="ignore")
+            st.session_state.nit_origen = None
 
-        # --- Modelo extendido ---
-        distE = espacioE.apply(lambda fila: distancia_ext(trayectoria_ext, fila, lambda_e, n_ventana, pesos_e), axis=1)
-        if st.session_state.nit_origen: distE = distE.drop(st.session_state.nit_origen, errors="ignore")
-        vecinos_e = distE.nsmallest(k_e).index
-        prob_e = espacioE.loc[vecinos_e, "RQ_final"].mean()
+        vecinos_idx = distE.nsmallest(k).index
+        prob = espacioE.loc[vecinos_idx, "RQ_final"].mean()
 
-        # --- Mostrar resultados ---
-        col1, col2 = st.columns(2)
+        st.success(f"🔮 Riesgo estimado de quiebra: **{prob:.2%}**")
 
-        with col1:
-            st.success(f"Modelo base: **{prob_b:.2%}** de riesgo")
-            res_b = espacioB.loc[vecinos_b, ["DEP", "CIIU_Letra", "Año_final"]].copy()
-            res_b["NIT"] = vecinos_b
-            res_b["Distancia"] = distB.loc[vecinos_b].values
-            st.dataframe(res_b.reset_index(drop=True))
-
-        with col2:
-            st.info(f"Modelo extendido: **{prob_e:.2%}** de riesgo")
-            res_e = espacioE.loc[vecinos_e, ["DEP", "CIIU_Letra", "Año_final"]].copy()
-            res_e["NIT"] = vecinos_e
-            res_e["Distancia"] = distE.loc[vecinos_e].values
-            st.dataframe(res_e.reset_index(drop=True))
-
-        st.session_state.nit_origen = None
+        resultado = espacioE.loc[vecinos_idx, ["DEP", "CIIU_Letra", "Año_final"]].copy()
+        resultado["NIT"] = vecinos_idx
+        resultado["Distancia funcional"] = distE.loc[vecinos_idx].values
+        st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
