@@ -52,6 +52,23 @@ if "dep_usuario" not in st.session_state:
     st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
 if "ciiu_usuario" not in st.session_state:
     st.session_state.ciiu_usuario = 'I'
+if "cambio_real" not in st.session_state:
+    st.session_state.cambio_real = False
+
+# --- Botón para cargar trayectoria real ---
+if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
+    fila = espacioE.sample(1)
+    st.session_state.nit_origen = fila.index[0]
+    st.session_state.anio_final_usuario = int(fila["Año_final"].iloc[0])
+    st.session_state.dep_usuario = fila["DEP"].iloc[0]
+    st.session_state.ciiu_usuario = fila["CIIU_Letra"].iloc[0]
+    nueva = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
+    for var in indicadores:
+        for i in range(n_ventana):
+            nueva.loc[f"Año {i+1}", var] = fila[f"{var}_-{i}"].values[0]
+    st.session_state.df_input = nueva
+    st.session_state.cambio_real = True
+    st.experimental_rerun()
 
 # --- Selectores con sincronización correcta ---
 st.sidebar.subheader("📌 Variables cualitativas")
@@ -72,19 +89,6 @@ sector_visible = st.sidebar.selectbox(
     key="sector"
 )
 st.session_state.ciiu_usuario = sector_to_letra[sector_visible]
-
-# --- Botón para cargar trayectoria real ---
-if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
-    fila = espacioE.sample(1)
-    st.session_state.nit_origen = fila.index[0]
-    st.session_state.anio_final_usuario = int(fila["Año_final"].iloc[0])
-    st.session_state.dep_usuario = fila["DEP"].iloc[0]
-    st.session_state.ciiu_usuario = fila["CIIU_Letra"].iloc[0]
-    nueva = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
-    for var in indicadores:
-        for i in range(n_ventana):
-            nueva.loc[f"Año {i+1}", var] = fila[f"{var}_-{i}"].values[0]
-    st.session_state.df_input = nueva
 
 # --- Entrada editable ---
 st.subheader("📝 Ingrese los 17 indicadores financieros (5 años)")
