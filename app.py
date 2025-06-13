@@ -51,12 +51,26 @@ if "anio_final_usuario" not in st.session_state:
 if "dep_usuario" not in st.session_state:
     st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
 if "ciiu_usuario" not in st.session_state:
-    st.session_state.ciiu_usuario = 'I'  # default: Turismo
+    st.session_state.ciiu_usuario = 'I'
 
-# --- Selectores para variables categóricas ---
+# --- Selectores con sincronización correcta ---
 st.sidebar.subheader("📌 Variables cualitativas")
-st.session_state.dep_usuario = st.sidebar.selectbox("Departamento", sorted(espacioE["DEP"].dropna().unique()), index=0, key="dep")
-sector_visible = st.sidebar.selectbox("Sector económico", sorted(sector_to_letra.keys()), key="sector")
+dep_options = sorted(espacioE["DEP"].dropna().unique())
+sector_options = sorted(sector_to_letra.keys())
+
+st.session_state.dep_usuario = st.sidebar.selectbox(
+    "Departamento",
+    dep_options,
+    index=dep_options.index(st.session_state.dep_usuario) if st.session_state.dep_usuario in dep_options else 0,
+    key="dep"
+)
+
+sector_visible = st.sidebar.selectbox(
+    "Sector económico",
+    sector_options,
+    index=sector_options.index(mapeo_sectores.get(st.session_state.ciiu_usuario, "Sin clasificar")),
+    key="sector"
+)
 st.session_state.ciiu_usuario = sector_to_letra[sector_visible]
 
 # --- Botón para cargar trayectoria real ---
@@ -132,4 +146,3 @@ if st.button("🔍 Predecir riesgo de quiebra"):
         resultado["Distancia funcional"] = distE.loc[vecinos_idx].values
         resultado = resultado[["NIT", "DEP", "Sector económico", "Distancia funcional"]]
         st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
-
