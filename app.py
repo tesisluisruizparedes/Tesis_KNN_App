@@ -52,17 +52,21 @@ mapeo_sectores = {
     'U': 'Entidades ext.', np.nan: 'Sin clasificar'
 }
 
-# --- Inicializar entrada editable en session_state ---
+# --- Inicializar entrada editable y NIT de origen ---
 if "df_input" not in st.session_state:
     st.session_state.df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
+if "nit_origen" not in st.session_state:
+    st.session_state.nit_origen = None
 
 # --- Botón para usar trayectoria real desde la base funcional ---
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
-    muestra = espacioF.sample(1).iloc[0]
+    muestra = espacioF.sample(1)
+    st.session_state.nit_origen = muestra.index[0]  # Guardamos el NIT
+    fila = muestra.iloc[0]
     nueva_entrada = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
     for var in indicadores:
         for i in range(n_ventana):
-            nueva_entrada.loc[f"Año {i+1}", var] = muestra.get(f"{var}_-{i}", np.nan)
+            nueva_entrada.loc[f"Año {i+1}", var] = fila.get(f"{var}_-{i}", np.nan)
     st.session_state.df_input = nueva_entrada
 
 # --- Mostrar editor editable con datos actuales ---
@@ -109,6 +113,12 @@ if st.button("🔍 Predecir riesgo de quiebra"):
 
         st.info("⏳ Calculando distancias funcionales...")
         distancias = espacioF.apply(lambda fila: distancia_ponderada(trayectoria, fila, lambda_p, n_ventana, pesos), axis=1)
+
+        # Excluir NIT de origen si corresponde
+        if st.session_state.nit_origen is not None:
+            distancias = distancias.drop(labels=[st.session_state.nit_origen], errors="ignore")
+            st.session_state.nit_origen = None  # Limpiar para la próxima
+
         vecinos_idx = distancias.nsmallest(k).index
         prob_quiebra = espacioF.loc[vecinos_idx, "RQ_final"].mean()
 
