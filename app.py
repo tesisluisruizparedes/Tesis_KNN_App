@@ -41,19 +41,22 @@ columnas_funcionales = [col for col in espacioE.columns if "_-" in col]
 indicadores = sorted(set(col.split("_-")[0] for col in columnas_funcionales))
 n_ventana = len(set(col.split("_-")[1] for col in columnas_funcionales))
 
-# --- Inicializar entrada y variables categóricas ---
-if "df_input" not in st.session_state:
-    st.session_state.df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
-if "nit_origen" not in st.session_state:
-    st.session_state.nit_origen = None
-if "anio_final_usuario" not in st.session_state:
-    st.session_state.anio_final_usuario = 2023
-if "dep_usuario" not in st.session_state:
-    st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
-if "ciiu_usuario" not in st.session_state:
-    st.session_state.ciiu_usuario = 'I'
-if "cambio_real" not in st.session_state:
-    st.session_state.cambio_real = False
+# --- Inicializar estado ---
+def init_state():
+    if "df_input" not in st.session_state:
+        st.session_state.df_input = pd.DataFrame(columns=indicadores, index=[f"Año {i+1}" for i in range(n_ventana)])
+    if "nit_origen" not in st.session_state:
+        st.session_state.nit_origen = None
+    if "anio_final_usuario" not in st.session_state:
+        st.session_state.anio_final_usuario = 2023
+    if "dep_usuario" not in st.session_state:
+        st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
+    if "ciiu_usuario" not in st.session_state:
+        st.session_state.ciiu_usuario = 'I'
+    if "cambio_real" not in st.session_state:
+        st.session_state.cambio_real = False
+
+init_state()
 
 # --- Botón para cargar trayectoria real ---
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
@@ -68,9 +71,14 @@ if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
             nueva.loc[f"Año {i+1}", var] = fila[f"{var}_-{i}"].values[0]
     st.session_state.df_input = nueva
     st.session_state.cambio_real = True
-    st.experimental_rerun()
 
-# --- Selectores con sincronización correcta ---
+# --- Si acaba de cambiar, evitar mostrar controles todavía ---
+if st.session_state.cambio_real:
+    st.info("✅ Trayectoria real cargada. Puede revisar los valores y presionar 'Predecir'.")
+    st.session_state.cambio_real = False
+    st.stop()
+
+# --- Selectores con sincronización ---
 st.sidebar.subheader("📌 Variables cualitativas")
 dep_options = sorted(espacioE["DEP"].dropna().unique())
 sector_options = sorted(sector_to_letra.keys())
