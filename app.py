@@ -1,4 +1,4 @@
-# --- Streamlit app: Solo modelo funcional extendido ---
+# --- Streamlit app: Solo modelo funcional extendido con sector económico ---
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -9,8 +9,20 @@ st.set_page_config(page_title="Predicción de Quiebra Extendida", layout="wide")
 st.title("📉 Predicción de Quiebra con Modelo Funcional k-NN Extendido")
 
 st.markdown("""
-Ingrese los valores de los 17 indicadores financieros para los **últimos 5 años**. Puede dejar valores en blanco (NaN). Seleccione también el Departamento y la Letra CIIU. El modelo buscará las trayectorias más similares considerando tanto el comportamiento financiero como el entorno de operación (región, sector y año).
+Ingrese los valores de los 17 indicadores financieros para los **últimos 5 años**. Puede dejar valores en blanco (NaN). Seleccione también el Departamento y el **sector económico**. El modelo buscará las trayectorias más similares considerando tanto el comportamiento financiero como el entorno de operación (región, sector y año).
 """)
+
+# --- Mapeo sectores ---
+mapeo_sectores = {
+    'A': 'Agro', 'B': 'Minería', 'C': 'Industria', 'D': 'Electricidad/Gas',
+    'E': 'Agua y desechos', 'F': 'Construcción', 'G': 'Comercio/Vehículos',
+    'H': 'Transporte', 'I': 'Turismo/Comida', 'J': 'Comunicaciones',
+    'K': 'Finanzas', 'L': 'Inmobiliario', 'M': 'Profesionales',
+    'N': 'Servicios adm.', 'O': 'Gobierno', 'P': 'Educación', 'Q': 'Salud',
+    'R': 'Entretenimiento', 'S': 'Otros servicios', 'T': 'Hogares',
+    'U': 'Entidades ext.', np.nan: 'Sin clasificar'
+}
+sector_to_letra = {v: k for k, v in mapeo_sectores.items() if pd.notna(k)}
 
 # --- Cargar base extendida y parámetros ---
 @st.cache_data
@@ -39,12 +51,13 @@ if "anio_final_usuario" not in st.session_state:
 if "dep_usuario" not in st.session_state:
     st.session_state.dep_usuario = espacioE["DEP"].dropna().unique()[0]
 if "ciiu_usuario" not in st.session_state:
-    st.session_state.ciiu_usuario = espacioE["CIIU_Letra"].dropna().unique()[0]
+    st.session_state.ciiu_usuario = 'I'  # default: Turismo
 
 # --- Selectores para variables categóricas ---
 st.sidebar.subheader("📌 Variables cualitativas")
 st.session_state.dep_usuario = st.sidebar.selectbox("Departamento", sorted(espacioE["DEP"].dropna().unique()), index=0, key="dep")
-st.session_state.ciiu_usuario = st.sidebar.selectbox("Letra CIIU", sorted(espacioE["CIIU_Letra"].dropna().unique()), index=0, key="ciiu")
+sector_visible = st.sidebar.selectbox("Sector económico", sorted(sector_to_letra.keys()), key="sector")
+st.session_state.ciiu_usuario = sector_to_letra[sector_visible]
 
 # --- Botón para cargar trayectoria real ---
 if st.sidebar.button("🎯 Usar trayectoria real de ejemplo"):
@@ -114,5 +127,9 @@ if st.button("🔍 Predecir riesgo de quiebra"):
 
         resultado = espacioE.loc[vecinos_idx, ["DEP", "CIIU_Letra", "Año_final"]].copy()
         resultado["NIT"] = vecinos_idx
+        resultado["Sector económico"] = resultado["CIIU_Letra"].map(mapeo_sectores)
+        resultado.drop(columns=["CIIU_Letra", "Año_final"], inplace=True)
         resultado["Distancia funcional"] = distE.loc[vecinos_idx].values
+        resultado = resultado[["NIT", "DEP", "Sector económico", "Distancia funcional"]]
         st.dataframe(resultado.reset_index(drop=True), use_container_width=True)
+
